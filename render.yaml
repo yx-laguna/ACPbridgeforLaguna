@@ -1,0 +1,35 @@
+services:
+  - type: worker
+    name: acp-laguna-translator
+    runtime: node
+    region: singapore
+    plan: starter
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: LAGUNA_API_BASE_URL
+        value: https://agents.laguna.network/api/v1
+      - key: LAGUNA_AGENT_EMAIL
+        value: yixin@menyala.com
+      - key: ACP_WALLET_ADDRESS
+        value: 0xe30fcf406e70523b63de93ef96b84d98f5511f3a
+      - key: ACP_CHAINS
+        value: baseSepolia,base
+      - key: ACP_AGENT_EMAIL
+        value: laguna-acp@menyala.com
+      - key: PRIVY_WALLET_ID
+        sync: false   # set in Render dashboard
+      - key: PRIVY_SIGNER_PRIVATE_KEY
+        sync: false   # set in Render dashboard
+      - key: ATTEST_PUBKEY_B64
+        sync: false   # set in Render dashboard
+      - key: ATTEST_SECKEY_B64
+        sync: false   # set in Render dashboard
+      - key: CACHE_DB_PATH
+        value: /var/data/cache.sqlite
+      - key: LOG_LEVEL
+        value: info
+    disk:
+      name: cache
+      mountPath: /var/data
+      sizeGB: 1

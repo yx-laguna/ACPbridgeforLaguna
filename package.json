@@ -1,0 +1,36 @@
+{
+  "name": "ACPLagunaTranslator",
+  "version": "0.1.0",
+  "description": "Virtuals ACP v2 provider agent that fronts the Laguna affiliate-commerce backend. Free-to-caller offerings; revenue comes from Laguna commission on resulting conversions.",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p .",
+    "dev": "tsx watch --env-file=.env src/server.ts",
+    "start": "node --env-file=.env dist/server.js",
+    "register": "tsx scripts/register-agent.ts",
+    "smoke": "tsx scripts/smoke-sepolia.ts",
+    "typecheck": "tsc -p . --noEmit",
+    "lint": "eslint src scripts --ext .ts"
+  },
+  "dependencies": {
+    "@account-kit/infra": "^4.0.0",
+    "@virtuals-protocol/acp-node-v2": "^0.0.4",
+    "better-sqlite3": "^11.3.0",
+    "tweetnacl": "^1.0.3",
+    "tweetnacl-util": "^0.15.1",
+    "undici": "^6.19.8",
+    "viem": "^2.21.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.11",
+    "@types/node": "^22.7.4",
+    "eslint": "^9.12.0",
+    "tsx": "^4.19.1",
+    "typescript": "^5.6.2"
+  },
+  "engines": {
+    "node": ">=20.11"
+  }
+}
