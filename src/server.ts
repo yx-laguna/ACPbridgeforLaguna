@@ -102,6 +102,10 @@ async function main() {
 
   await agent.start();
   log("info", `ACPLagunaTranslator up on chains: baseSepolia, base`);
+
+  // Keep the process alive. The ACP SDK's internal WebSocket/polling uses
+  // unref'd handles so Node exits when main() returns without this.
+  setInterval(() => {}, 60_000);
 }
 
 function requireEnv(k: string): string {

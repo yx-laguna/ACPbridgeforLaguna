@@ -26,10 +26,6 @@ services:
       - key: ATTEST_SECKEY_B64
         sync: false   # set in Render dashboard
       - key: CACHE_DB_PATH
-        value: /var/data/cache.sqlite
+        value: /tmp/cache.sqlite
       - key: LOG_LEVEL
         value: info
-    disk:
-      name: cache
-      mountPath: /var/data
-      sizeGB: 1
