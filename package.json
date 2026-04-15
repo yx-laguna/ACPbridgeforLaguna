@@ -7,7 +7,7 @@
   "scripts": {
     "build": "tsc -p .",
     "dev": "tsx watch --env-file=.env src/server.ts",
-    "start": "node --env-file=.env dist/server.js",
+    "start": "node dist/server.js",
     "register": "tsx scripts/register-agent.ts",
     "test:handler": "tsx --env-file=.env scripts/test-handler.ts",
     "smoke": "tsx scripts/smoke-sepolia.ts",
