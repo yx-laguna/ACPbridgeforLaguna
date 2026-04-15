@@ -4,8 +4,8 @@ services:
     runtime: node
     region: singapore
     plan: starter
-    buildCommand: npm install && npm run build
-    startCommand: node dist/src/server.js
+    buildCommand: npm install
+    startCommand: npx tsx src/server.ts
     envVars:
       - key: LAGUNA_API_BASE_URL
         value: https://agents.laguna.network/api/v1
