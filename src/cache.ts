@@ -9,8 +9,20 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
-const DB_PATH = process.env.CACHE_DB_PATH ?? "./var/cache.sqlite";
-fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
+function resolveDbPath(): string {
+  const preferred = process.env.CACHE_DB_PATH ?? "./var/cache.sqlite";
+  try {
+    fs.mkdirSync(path.dirname(preferred), { recursive: true });
+    return preferred;
+  } catch {
+    // Fall back to a local path if the preferred location isn't writable (e.g. disk not yet mounted)
+    const fallback = "./cache.sqlite";
+    fs.mkdirSync(path.dirname(fallback), { recursive: true });
+    return fallback;
+  }
+}
+
+const DB_PATH = resolveDbPath();
 
 const db = new Database(DB_PATH);
 db.pragma("journal_mode = WAL");
