@@ -62,8 +62,8 @@ async function main() {
           // Always price at the minimum; unknown offerings get 0.01 too
           // (they'll be rejected at job.funded if we don't support them).
           const price =
-            createdOffering === "mint-affiliate-link" ? 0.01 :
-            createdOffering === "sweep-commissions"   ? 0.01 :
+            createdOffering === "mint_link"         ? 0.01 :
+            createdOffering === "sweep_commissions" ? 0.01 :
             0.01;
           try {
             await session.setBudget(AssetToken.usdc(price, session.chainId));
@@ -93,10 +93,10 @@ async function main() {
 
           let deliverable: unknown;
           switch (offeringName) {
-            case "mint-affiliate-link":
+            case "mint_link":
               deliverable = await mintLink.handler(req, ctx);
               break;
-            case "sweep-commissions":
+            case "sweep_commissions":
               deliverable = await sweep.handler(req, { laguna, walletAddress: WALLET });
               break;
             default:
