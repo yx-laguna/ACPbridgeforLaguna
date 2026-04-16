@@ -52,8 +52,8 @@ async function main() {
           const createdJob = await session.fetchJob();
           const createdOffering = createdJob.description ?? "";
           const price =
-            createdOffering === "mint-affiliate-link" ? 0.0001 :
-            createdOffering === "sweep-commissions"   ? 0.0001 :
+            createdOffering === "mint-affiliate-link" ? 0.01 :
+            createdOffering === "sweep-commissions"   ? 0.01 :
             0; // unknown offerings: free until rejected in job.funded
           try {
             await session.setBudget(AssetToken.usdc(price, session.chainId));
