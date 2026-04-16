@@ -8,6 +8,12 @@ export const MintLinkRequest = z.object({
   target_url: z.string().url().optional(),
   geo: z.string().length(2).optional(),
   caller_tag: z.string().max(128).optional(),
+  /**
+   * Ethereum wallet address to receive Laguna cashback commissions.
+   * Defaults to the client agent's on-chain address (job.clientAddress).
+   * Override if the client wants commissions sent to a separate wallet.
+   */
+  recipient_wallet: z.string().regex(/^0x[0-9a-fA-F]{40}$/).optional(),
 });
 export type MintLinkRequest = z.infer<typeof MintLinkRequest>;
 
@@ -54,9 +60,13 @@ export async function handler(
     );
   }
 
+  // Commission recipient: prefer explicit request override, then client's
+  // on-chain address, then fall back to provider wallet (last resort).
+  const commissionWallet = req.recipient_wallet ?? ctx.clientAgentId ?? ctx.walletAddress;
+
   const minted = await ctx.laguna.mintLink({
     merchant_id: req.merchant_id,
-    wallet_address: ctx.walletAddress,
+    wallet_address: commissionWallet,
     ...(req.target_url !== undefined ? { target_url: req.target_url } : {}),
     ...(req.geo !== undefined ? { geo: req.geo } : {}),
   });
