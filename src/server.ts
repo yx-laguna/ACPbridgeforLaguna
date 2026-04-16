@@ -48,8 +48,14 @@ async function main() {
     try {
       switch (entry.event.type) {
         case "job.created": {
-          // Free offering — set zero-USDC budget.
-          await session.setBudget(AssetToken.usdc(0, session.chainId));
+          // Fetch job so we can price per offering.
+          const createdJob = await session.fetchJob();
+          const createdOffering = createdJob.description ?? "";
+          const price =
+            createdOffering === "mint-affiliate-link" ? 0.0001 :
+            createdOffering === "sweep-commissions"   ? 0.0001 :
+            0; // unknown offerings: free until rejected in job.funded
+          await session.setBudget(AssetToken.usdc(price, session.chainId));
           return;
         }
 
