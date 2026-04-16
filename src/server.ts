@@ -48,19 +48,26 @@ async function main() {
     try {
       switch (entry.event.type) {
         case "job.created": {
-          // Fetch job so we can price per offering.
-          const createdJob = await session.fetchJob();
-          const createdOffering = createdJob.description ?? "";
+          // Try to read the offering name so we can price correctly.
+          // fetchJob() is called again here (SDK already called it in dispatch)
+          // so we isolate any failure — a failing fetch must not cascade into
+          // session.reject() which would also fail for stale/unowned jobs.
+          let createdOffering = "";
+          try {
+            const createdJob = await session.fetchJob();
+            createdOffering = createdJob.description ?? "";
+          } catch (fetchErr) {
+            log("warn", `job ${session.jobId} fetchJob failed in job.created (stale?): ${serializeError(fetchErr)}`);
+          }
+          // Always price at the minimum; unknown offerings get 0.01 too
+          // (they'll be rejected at job.funded if we don't support them).
           const price =
             createdOffering === "mint-affiliate-link" ? 0.01 :
             createdOffering === "sweep-commissions"   ? 0.01 :
-            0; // unknown offerings: free until rejected in job.funded
+            0.01;
           try {
             await session.setBudget(AssetToken.usdc(price, session.chainId));
           } catch (budgetErr) {
-            // Stale replay: setBudget already succeeded in a prior run and
-            // the budget is already set on-chain. Log and skip — the client
-            // will fund (or abandon) the job on their side.
             log("warn", `job ${session.jobId} setBudget skipped (already set or unauthorized): ${serializeError(budgetErr)}`);
           }
           return;
@@ -109,7 +116,13 @@ async function main() {
           return;
       }
     } catch (err) {
-      await session.reject(serializeError(err));
+      log("error", `job ${session.jobId} handler error: ${serializeError(err)}`);
+      try {
+        await session.reject(serializeError(err));
+      } catch (rejectErr) {
+        // reject() itself can revert (Unauthorized) for stale/unowned jobs; swallow it.
+        log("warn", `job ${session.jobId} reject also failed: ${serializeError(rejectErr)}`);
+      }
     }
   });
 
