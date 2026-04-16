@@ -55,7 +55,14 @@ async function main() {
             createdOffering === "mint-affiliate-link" ? 0.0001 :
             createdOffering === "sweep-commissions"   ? 0.0001 :
             0; // unknown offerings: free until rejected in job.funded
-          await session.setBudget(AssetToken.usdc(price, session.chainId));
+          try {
+            await session.setBudget(AssetToken.usdc(price, session.chainId));
+          } catch (budgetErr) {
+            // Stale replay: setBudget already succeeded in a prior run and
+            // the budget is already set on-chain. Log and skip — the client
+            // will fund (or abandon) the job on their side.
+            log("warn", `job ${session.jobId} setBudget skipped (already set or unauthorized): ${serializeError(budgetErr)}`);
+          }
           return;
         }
 
