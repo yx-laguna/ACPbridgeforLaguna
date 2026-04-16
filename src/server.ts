@@ -116,12 +116,19 @@ async function main() {
           return;
       }
     } catch (err) {
-      log("error", `job ${session.jobId} handler error: ${serializeError(err)}`);
+      const errMsg = serializeError(err);
+      log("error", `job ${session.jobId} handler error: ${errMsg}`);
+      // For funded jobs the provider cannot reject — submit an error deliverable
+      // so the on-chain state advances and the client can read the failure reason.
       try {
-        await session.reject(serializeError(err));
-      } catch (rejectErr) {
-        // reject() itself can revert (Unauthorized) for stale/unowned jobs; swallow it.
-        log("warn", `job ${session.jobId} reject also failed: ${serializeError(rejectErr)}`);
+        await session.submit(JSON.stringify({ error: errMsg }));
+      } catch {
+        // If submit also fails (e.g. wrong state for stale jobs), swallow silently.
+        try {
+          await session.reject(errMsg);
+        } catch (rejectErr) {
+          log("warn", `job ${session.jobId} reject also failed: ${serializeError(rejectErr)}`);
+        }
       }
     }
   });

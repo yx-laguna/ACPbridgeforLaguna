@@ -42,11 +42,16 @@ export async function handler(
   const cached = getCached<Attested<MintLinkDeliverable>>(cacheKey);
   if (cached) return cached;
 
-  // Validate merchant exists in caller's geo before spending a mint call.
+  // Validate merchant exists (and is available in caller's geo if provided).
+  // getMerchantInfo already checks `available` server-side when geo is passed —
+  // returning null means unavailable. Don't re-check availability_geo locally
+  // since the API may use different country code formats than the caller.
   const info = await ctx.laguna.getMerchantInfo(req.merchant_id, req.geo);
-  if (!info) throw new ServiceError("unknown_merchant", `merchant_id=${req.merchant_id}`);
-  if (req.geo && !info.availability_geo.includes(req.geo)) {
-    throw new ServiceError("geo_unavailable", `${req.merchant_id} not in ${req.geo}`);
+  if (!info) {
+    throw new ServiceError(
+      req.geo ? "geo_unavailable" : "unknown_merchant",
+      `merchant_id=${req.merchant_id}${req.geo ? ` geo=${req.geo}` : ""}`,
+    );
   }
 
   const minted = await ctx.laguna.mintLink({
