@@ -4,7 +4,11 @@ import { attest, type Attested } from "../attest.js";
 import { ServiceError } from "./mint-affiliate-link.js";
 
 export const SweepRequest = z.object({
-  wallet_address: z.string().regex(/^0x[0-9a-fA-F]{40}$/),
+  /**
+   * Optional partial amount in USDC to withdraw. Omit to sweep the full
+   * available balance. The withdrawal always goes to the provider's
+   * Laguna-registered wallet — callers cannot redirect funds.
+   */
   amount: z.number().positive().optional(),
 });
 export type SweepRequest = z.infer<typeof SweepRequest>;
@@ -21,7 +25,7 @@ export interface SweepDeliverable {
 
 export interface HandlerCtx {
   laguna: LagunaClient;
-  walletAddress: string; // our on-record Laguna wallet
+  walletAddress: string; // our on-record Laguna wallet — always the withdrawal target
 }
 
 export async function handler(
@@ -30,18 +34,8 @@ export async function handler(
 ): Promise<Attested<SweepDeliverable>> {
   const req = SweepRequest.parse(raw);
 
-  // Laguna itself only ever pays to the registered wallet, but we still
-  // refuse requests that target a different address — fail fast rather
-  // than rely on upstream to reject.
-  if (req.wallet_address.toLowerCase() !== ctx.walletAddress.toLowerCase()) {
-    throw new ServiceError(
-      "wallet_mismatch",
-      "wallet_address must match the Laguna-registered wallet",
-    );
-  }
-
   const result = await ctx.laguna.withdraw({
-    wallet_address: req.wallet_address,
+    wallet_address: ctx.walletAddress,
     ...(req.amount !== undefined ? { amount: req.amount } : {}),
   });
 

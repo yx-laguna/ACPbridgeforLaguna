@@ -38,18 +38,18 @@ export const agentIdentity = {
 
 export const offerings: OfferingSpec[] = [
   {
-    name: "mint-affiliate-link",
+    name: "mint_link",
     description:
       "Mint a Laguna affiliate shortlink for a given merchant. Free to caller; provider earns cashback commission on attributed conversions.",
-    priceUsdc: 0,
+    priceUsdc: 0.01,
     slaMinutes: 2,
     requirementSchema: MintLinkRequest,
   },
   {
-    name: "sweep-commissions",
+    name: "sweep_commissions",
     description:
       "Trigger a Laguna withdrawal to the pre-registered wallet. Only pays to the on-record address; caller cannot redirect funds.",
-    priceUsdc: 0,
+    priceUsdc: 0.01,
     slaMinutes: 5,
     requirementSchema: SweepRequest,
   },
