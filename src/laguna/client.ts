@@ -127,6 +127,24 @@ export class LagunaClient {
     return (await res.body.json()) as T;
   }
 
+  private async post<T>(path: string, body: Record<string, string | number | undefined>): Promise<T> {
+    const url = `${this.cfg.baseUrl}${path}`;
+    const payload: Record<string, string | number> = {};
+    for (const [k, v] of Object.entries(body)) {
+      if (v != null) payload[k] = v;
+    }
+    const res = await request(url, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    if (res.statusCode >= 400) {
+      const text = await res.body.text();
+      throw new LagunaError(res.statusCode, text, path);
+    }
+    return (await res.body.json()) as T;
+  }
+
   // ─── discovery ─────────────────────────────────────────────────
   async searchMerchants(q: {
     query?: string;
@@ -183,7 +201,7 @@ export class LagunaClient {
   }
 
   async withdraw(p: { wallet_address: string; amount?: number }): Promise<WithdrawResult> {
-    return this.get<WithdrawResult>("/withdraw", p);
+    return this.post<WithdrawResult>("/withdraw", p);
   }
 
   async getWithdrawalStatus(withdrawalId: string): Promise<WithdrawResult> {
