@@ -16,7 +16,7 @@
   },
   "dependencies": {
     "@account-kit/infra": "^4.0.0",
-    "@virtuals-protocol/acp-node-v2": "^0.0.4",
+    "@virtuals-protocol/acp-node-v2": "^0.1.6",
     "tweetnacl": "^1.0.3",
     "tweetnacl-util": "^0.15.1",
     "undici": "^6.19.8",
