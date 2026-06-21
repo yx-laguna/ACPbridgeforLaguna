@@ -5,7 +5,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "esbuild src/server.ts --bundle --platform=node --format=cjs --outfile=dist/bundle.cjs",
+    "build": "esbuild src/server.ts --bundle --platform=node --format=cjs --outfile=dist/bundle.cjs --define:import.meta.url=__importMetaUrl \"--banner:js=const __importMetaUrl=require('url').pathToFileURL(__filename).href;\"",
     "dev": "tsx watch --env-file=.env src/server.ts",
     "start": "node dist/bundle.cjs",
     "register": "tsx scripts/register-agent.ts",
