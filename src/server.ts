@@ -33,6 +33,85 @@ const laguna = new LagunaClient({
   walletAddress: WALLET,
 });
 
+// ── Polling fallback ──────────────────────────────────────────────────
+// The SocketTransport often drops after the first event batch. We track
+// jobs that we've set a budget on and poll them until they reach "funded",
+// then process them. This guarantees delivery even if the socket dies.
+const pendingJobs = new Map<string, { session: JobSession; chainId: number }>();
+const processingJobs = new Set<string>();  // prevent duplicate processing
+
+async function handleFundedJob(session: JobSession) {
+  const jobKey = `${session.chainId}:${session.jobId}`;
+  if (processingJobs.has(jobKey)) return;
+  processingJobs.add(jobKey);
+  pendingJobs.delete(jobKey);
+
+  log("info", `job ${session.jobId} funded — processing deliverable`);
+  try {
+    const job = await session.fetchJob();
+    const offeringName = job.description ?? "";
+
+    // Requirement is sent as a chat message immediately after job creation.
+    const reqEntry = session.entries.find(
+      (e): e is AgentMessage =>
+        e.kind === "message" && e.contentType === "requirement",
+    );
+    const req: unknown = reqEntry ? JSON.parse(reqEntry.content) : {};
+
+    const ctx = {
+      laguna,
+      walletAddress: WALLET,
+      clientAgentId: job.clientAddress,
+    };
+
+    let deliverable: unknown;
+    switch (offeringName) {
+      case "mint_link":
+        deliverable = await mintLink.handler(req, ctx);
+        break;
+      case "sweep_commissions":
+        deliverable = await sweep.handler(req, { laguna, walletAddress: WALLET });
+        break;
+      default:
+        await session.submit(JSON.stringify({ error: `unknown_offering:${offeringName}` }));
+        return;
+    }
+    log("info", `job ${session.jobId} submitting deliverable`);
+    await session.submit(JSON.stringify(deliverable));
+    log("info", `job ${session.jobId} deliverable submitted successfully`);
+  } catch (err) {
+    const errMsg = serializeError(err);
+    log("error", `job ${session.jobId} handler error: ${errMsg}`);
+    try {
+      await session.submit(JSON.stringify({ error: errMsg }));
+    } catch {
+      try { await session.reject(errMsg); } catch (rejectErr) {
+        log("warn", `job ${session.jobId} reject also failed: ${serializeError(rejectErr)}`);
+      }
+    }
+  }
+}
+
+async function pollPendingJobs() {
+  if (pendingJobs.size === 0) return;
+  log("info", `polling ${pendingJobs.size} pending job(s)...`);
+  for (const [jobKey, { session }] of pendingJobs) {
+    try {
+      const job = await session.fetchJob();
+      const status = job.status;  // AcpJobStatus enum: OPEN, FUNDED, SUBMITTED, etc.
+      log("info", `poll: job ${session.jobId} status=${status}`);
+      if (status === "FUNDED") {
+        await handleFundedJob(session);
+      } else if (status === "SUBMITTED" || status === "COMPLETED" || status === "REJECTED" || status === "EXPIRED") {
+        log("info", `poll: job ${session.jobId} already ${status}, removing from pending`);
+        pendingJobs.delete(jobKey);
+      }
+    } catch (pollErr) {
+      log("warn", `poll: job ${session.jobId} fetchJob failed: ${serializeError(pollErr)}`);
+    }
+  }
+}
+
 async function main() {
   log("info", "starting: creating PrivyAlchemy provider adapter...");
   const provider = await PrivyAlchemyEvmProviderAdapter.create({
@@ -63,6 +142,9 @@ async function main() {
       log("info", `job ${session.jobId} requirement received, setting budget 0.01 USDC`);
       try {
         await session.setBudget(AssetToken.usdc(0.01, session.chainId));
+        const jobKey = `${session.chainId}:${session.jobId}`;
+        pendingJobs.set(jobKey, { session, chainId: session.chainId });
+        log("info", `job ${session.jobId} budget set, added to polling queue`);
       } catch (budgetErr) {
         log("warn", `job ${session.jobId} setBudget failed: ${serializeError(budgetErr)}`);
       }
@@ -74,7 +156,7 @@ async function main() {
     try {
       switch (entry.event.type) {
         case "job.created": {
-          // Also try setting budget on job.created as fallback
+          // Set budget on job.created as fallback
           let createdOffering = "";
           try {
             const createdJob = await session.fetchJob();
@@ -82,51 +164,27 @@ async function main() {
           } catch (fetchErr) {
             log("warn", `job ${session.jobId} fetchJob failed in job.created (stale?): ${serializeError(fetchErr)}`);
           }
-          // Always price at the minimum; unknown offerings get 0.01 too
-          // (they'll be rejected at job.funded if we don't support them).
-          const price =
-            createdOffering === "mint_link"         ? 0.01 :
-            createdOffering === "sweep_commissions" ? 0.01 :
-            0.01;
+          const price = 0.01;
           try {
             await session.setBudget(AssetToken.usdc(price, session.chainId));
+            const jobKey = `${session.chainId}:${session.jobId}`;
+            pendingJobs.set(jobKey, { session, chainId: session.chainId });
+            log("info", `job ${session.jobId} budget set via job.created, added to polling queue`);
           } catch (budgetErr) {
             log("warn", `job ${session.jobId} setBudget skipped (already set or unauthorized): ${serializeError(budgetErr)}`);
+            // Still add to polling in case budget was already set
+            const jobKey = `${session.chainId}:${session.jobId}`;
+            if (!processingJobs.has(jobKey)) {
+              pendingJobs.set(jobKey, { session, chainId: session.chainId });
+            }
           }
           return;
         }
 
         case "job.funded": {
-          // Fetch job to get offering name (stored in description) and client address.
-          const job = await session.fetchJob();
-          const offeringName = job.description ?? "";
-
-          // Requirement is sent as a chat message immediately after job creation.
-          const reqEntry = session.entries.find(
-            (e): e is AgentMessage =>
-              e.kind === "message" && e.contentType === "requirement",
-          );
-          const req: unknown = reqEntry ? JSON.parse(reqEntry.content) : {};
-
-          const ctx = {
-            laguna,
-            walletAddress: WALLET,
-            clientAgentId: job.clientAddress,
-          };
-
-          let deliverable: unknown;
-          switch (offeringName) {
-            case "mint_link":
-              deliverable = await mintLink.handler(req, ctx);
-              break;
-            case "sweep_commissions":
-              deliverable = await sweep.handler(req, { laguna, walletAddress: WALLET });
-              break;
-            default:
-              await session.submit(JSON.stringify({ error: `unknown_offering:${offeringName}` }));
-              return;
-          }
-          await session.submit(JSON.stringify(deliverable));
+          // Real-time funded event — process immediately
+          log("info", `job ${session.jobId} funded event received via socket`);
+          await handleFundedJob(session);
           return;
         }
 
@@ -141,15 +199,10 @@ async function main() {
     } catch (err) {
       const errMsg = serializeError(err);
       log("error", `job ${session.jobId} handler error: ${errMsg}`);
-      // For funded jobs the provider cannot reject — submit an error deliverable
-      // so the on-chain state advances and the client can read the failure reason.
       try {
         await session.submit(JSON.stringify({ error: errMsg }));
       } catch {
-        // If submit also fails (e.g. wrong state for stale jobs), swallow silently.
-        try {
-          await session.reject(errMsg);
-        } catch (rejectErr) {
+        try { await session.reject(errMsg); } catch (rejectErr) {
           log("warn", `job ${session.jobId} reject also failed: ${serializeError(rejectErr)}`);
         }
       }
@@ -174,8 +227,14 @@ async function main() {
   });
   log("info", `ACPLagunaTranslator up on chains: baseSepolia, base`);
 
-  // Keep the process alive. The ACP SDK's internal WebSocket/polling uses
-  // unref'd handles so Node exits when main() returns without this.
+  // Poll pending jobs every 10 seconds as fallback for dropped socket events
+  setInterval(() => {
+    pollPendingJobs().catch((err) => {
+      log("error", `pollPendingJobs error: ${serializeError(err)}`);
+    });
+  }, 10_000);
+
+  // Keep the process alive
   setInterval(() => {}, 60_000);
 }
 
