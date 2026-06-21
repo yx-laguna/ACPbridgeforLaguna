@@ -37,7 +37,7 @@ async function main() {
   const provider = await PrivyAlchemyEvmProviderAdapter.create({
     walletAddress: WALLET,
     walletId: WALLET_ID,
-    chains: [baseSepolia, base],
+    chains: [base, baseSepolia],
     signerPrivateKey: SIGNER_KEY,
   });
   log("info", "provider adapter created, creating AcpAgent...");
