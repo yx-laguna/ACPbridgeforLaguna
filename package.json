@@ -5,7 +5,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "esbuild src/server.ts --bundle --platform=node --format=cjs --outfile=dist/bundle.cjs --external:better-sqlite3",
+    "build": "esbuild src/server.ts --bundle --platform=node --format=cjs --outfile=dist/bundle.cjs",
     "dev": "tsx watch --env-file=.env src/server.ts",
     "start": "node dist/bundle.cjs",
     "register": "tsx scripts/register-agent.ts",
@@ -17,7 +17,6 @@
   "dependencies": {
     "@account-kit/infra": "^4.0.0",
     "@virtuals-protocol/acp-node-v2": "^0.0.4",
-    "better-sqlite3": "^11.3.0",
     "tweetnacl": "^1.0.3",
     "tweetnacl-util": "^0.15.1",
     "undici": "^6.19.8",
@@ -25,7 +24,6 @@
     "zod": "^3.23.8"
   },
   "devDependencies": {
-    "@types/better-sqlite3": "^7.6.11",
     "@types/node": "^22.7.4",
     "esbuild": "^0.28.0",
     "eslint": "^9.12.0",

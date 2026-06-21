@@ -25,7 +25,5 @@ services:
         sync: false   # set in Render dashboard
       - key: ATTEST_SECKEY_B64
         sync: false   # set in Render dashboard
-      - key: CACHE_DB_PATH
-        value: /tmp/cache.sqlite
       - key: LOG_LEVEL
         value: info
