@@ -100,7 +100,7 @@ async function main() {
               deliverable = await sweep.handler(req, { laguna, walletAddress: WALLET });
               break;
             default:
-              await session.reject(`unknown_offering:${offeringName}`);
+              await session.submit(JSON.stringify({ error: `unknown_offering:${offeringName}` }));
               return;
           }
           await session.submit(JSON.stringify(deliverable));
