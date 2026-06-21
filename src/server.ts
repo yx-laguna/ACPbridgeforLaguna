@@ -15,6 +15,7 @@ import {
   AcpAgent,
   PrivyAlchemyEvmProviderAdapter,
   AssetToken,
+  SocketTransport,
 } from "@virtuals-protocol/acp-node-v2";
 import type { JobSession, JobRoomEntry, AgentMessage } from "@virtuals-protocol/acp-node-v2";
 import { baseSepolia, base } from "@account-kit/infra";
@@ -40,20 +41,37 @@ async function main() {
     chains: [base, baseSepolia],
     signerPrivateKey: SIGNER_KEY,
   });
-  log("info", "provider adapter created, creating AcpAgent...");
-  const agent = await AcpAgent.create({ provider });
+  log("info", "provider adapter created, creating AcpAgent with SocketTransport...");
+  const agent = await AcpAgent.create({
+    provider,
+    transport: new SocketTransport(),
+  });
   log("info", "AcpAgent created, registering handler...");
 
   agent.on("entry", async (session: JobSession, entry: JobRoomEntry) => {
+    log("info", `entry received: kind=${entry.kind} jobId=${entry.onChainJobId} chainId=${entry.chainId} ${entry.kind === "system" ? `event=${entry.event.type}` : `contentType=${"contentType" in entry ? entry.contentType : "?"}`}`);
+
+    // Handle requirement message — set budget (official SDK pattern)
+    if (
+      entry.kind === "message" &&
+      (entry as AgentMessage).contentType === "requirement" &&
+      session.status === "open"
+    ) {
+      log("info", `job ${session.jobId} requirement received, setting budget 0.01 USDC`);
+      try {
+        await session.setBudget(AssetToken.usdc(0.01, session.chainId));
+      } catch (budgetErr) {
+        log("warn", `job ${session.jobId} setBudget failed: ${serializeError(budgetErr)}`);
+      }
+      return;
+    }
+
     if (entry.kind !== "system") return;
 
     try {
       switch (entry.event.type) {
         case "job.created": {
-          // Try to read the offering name so we can price correctly.
-          // fetchJob() is called again here (SDK already called it in dispatch)
-          // so we isolate any failure — a failing fetch must not cascade into
-          // session.reject() which would also fail for stale/unowned jobs.
+          // Also try setting budget on job.created as fallback
           let createdOffering = "";
           try {
             const createdJob = await session.fetchJob();
@@ -146,11 +164,11 @@ async function main() {
     log("info", "hydrateSessions skipped (monkey-patched)");
   };
 
-  // Only subscribe to "chat" stream — "wallet" stream is for approval gates
-  // which we don't use (our Privy signer auto-signs).
+  // Subscribe to both streams (chat + wallet). The wallet stream carries
+  // on-chain job events that the chat stream may not include.
   await agent.start(() => {
     log("info", "SSE onConnected callback fired");
-  }, ["chat"]);
+  });
   log("info", `ACPLagunaTranslator up on chains: baseSepolia, base`);
 
   // Keep the process alive. The ACP SDK's internal WebSocket/polling uses
