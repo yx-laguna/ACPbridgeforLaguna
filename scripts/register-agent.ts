@@ -1,8 +1,17 @@
 /**
- * One-off: print the ACP provider registration spec from acp.config.ts.
- * Paste the output into the ACP Registry UI at app.virtuals.io/acp.
+ * One-off: print the ACP provider registration spec and write offering.json
+ * files compatible with `acp offering create --from-file`.
+ *
+ * Usage:
+ *   npm run register
+ *
+ * Output:
+ *   - Console summary for manual reference
+ *   - agents/laguna/offerings/<name>/offering.json  (one per offering)
  */
 
+import { writeFileSync, mkdirSync } from "fs";
+import { join } from "path";
 import { agentIdentity, offerings, resources } from "../acp.config.js";
 
 async function main() {
@@ -17,7 +26,34 @@ async function main() {
   console.log("Resources:");
   for (const r of resources) console.log(`  - ${r.name}`);
   console.log();
-  console.log("Next: register via app.virtuals.io/acp/new (or the ACP Registry API once available).");
+
+  // Write offering.json files for `acp offering create --from-file`
+  for (const o of offerings) {
+    const dir = join("agents", "laguna", "offerings", o.name);
+    mkdirSync(dir, { recursive: true });
+    const offeringJson = {
+      name: o.name,
+      description: o.description,
+      price: {
+        amount: o.priceUsdc,
+        currency: "USDC",
+      },
+      sla_minutes: o.slaMinutes,
+      chains: agentIdentity.chainNames,
+      provider: {
+        name: agentIdentity.name,
+        wallet: agentIdentity.walletAddress,
+        email: agentIdentity.email,
+      },
+    };
+    const outPath = join(dir, "offering.json");
+    writeFileSync(outPath, JSON.stringify(offeringJson, null, 2) + "\n");
+    console.log(`Wrote ${outPath}`);
+  }
+
+  console.log();
+  console.log("Next: acp offering create --from-file agents/laguna/offerings/<name>/offering.json");
+  console.log("      (or register manually via app.virtuals.io/acp/new)");
 }
 
 main().catch((e) => {

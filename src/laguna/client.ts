@@ -21,7 +21,7 @@ export interface Merchant {
   category: string;
   cashback_rate_bps: number;      // basis points (e.g. 126 = 1.26%)
   cookie_window_days: number;
-  availability_geo: string[];     // ISO 3166-1 alpha-3 (e.g. "SGP")
+  availability_geo: string[];     // ISO 3166-1 alpha-2 (e.g. "SG")
 }
 
 export interface MintLinkResult {

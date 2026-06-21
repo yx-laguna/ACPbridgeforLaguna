@@ -2,7 +2,7 @@
 
 Virtuals **ACP v2** provider agent that fronts the Laguna affiliate backend. Free to callers; we earn the spread via Laguna cashback commission on resulting conversions.
 
-**Does not touch the Laguna MCP repo.** This service talks to Laguna over HTTP as a client, and exposes ACP v2 offerings via `acp serve` (x402 + MPP + native ACP rails).
+**Does not touch the Laguna MCP repo.** This service talks to Laguna over HTTP as a client, and exposes ACP v2 offerings via the programmatic ACP v2 SDK (`AcpAgent` + `agent.on("entry", ...)` — not `acp serve`). The programmatic path is intentional: it allows the SQLite idempotency cache and ed25519 attestation to run in the handler path.
 
 ## Quickstart
 
@@ -38,8 +38,8 @@ npm run build && npm start
 
 | Offering              | Price | What it does |
 |-----------------------|-------|--------------|
-| `mint-affiliate-link` | 0 USDC | Returns a Laguna shortlink for a given `merchant_id` (+ optional `target_url`, `geo`, `caller_tag`). Cached 24h per (client, merchant, target, tag). |
-| `sweep-commissions`   | 0 USDC | Triggers a Laguna withdrawal. Only pays to the on-record wallet — validated against `ACP_WALLET_ADDRESS`. |
+| `mint_link`           | 0.01 USDC | Returns a Laguna shortlink for a given `merchant_id` (+ optional `target_url`, `geo`, `caller_tag`). Cached 24h per (client, merchant, target, tag). |
+| `sweep_commissions`   | 0.01 USDC | Triggers a Laguna withdrawal. Only pays to the on-record wallet — validated against `ACP_WALLET_ADDRESS`. |
 
 | Resource             | What it does |
 |----------------------|--------------|
@@ -47,7 +47,7 @@ npm run build && npm start
 
 ## Monetization
 
-Jobs are priced at 0 USDC. Revenue = Laguna commissions on conversions attributed to minted links; these settle to `ACP_WALLET_ADDRESS` on Base and are swept via `sweep-commissions` (or manually via Laguna's dashboard).
+Jobs are priced at 0.01 USDC per call. The provider refunds the 0.01 USDC to the client after job completion (nominal toll to satisfy ACP escrow; net cost to caller is zero). Revenue = Laguna commissions on conversions attributed to minted links; these settle to `ACP_WALLET_ADDRESS` on Base and are swept via `sweep_commissions` (or manually via Laguna's dashboard).
 
 Every deliverable carries a `monetization: provider_earns_affiliate_commission_on_conversion` tag plus an ed25519 attestation so callers can verify the shortlink came from us.
 
@@ -59,7 +59,7 @@ src/laguna/client.ts    typed HTTP client for Laguna backend (only place that kn
 src/handlers/           one file per offering/resource — pure handlers
 src/attest.ts           ed25519 signed deliverables
 src/cache.ts            SQLite idempotency cache
-src/server.ts           optional custom entrypoint (alt to `acp serve`)
+src/server.ts           main entrypoint — programmatic ACP v2 (not acp serve)
 scripts/register-agent  identity + offering registration
 scripts/smoke-sepolia   e2e client-side smoke test
 ```

@@ -14,12 +14,12 @@ A Virtuals **ACP v2** provider agent that fronts the **Laguna** affiliate-commer
 Client agent (Virtuals)  ──ACP v2──▶  ACPLagunaTranslator (this repo)  ──HTTP──▶  Laguna backend
 ```
 
-- `src/server.ts` — entrypoint. Programmatic ACP v2 `AcpAgent` using the unified event model.
+- `src/server.ts` — main entrypoint. Programmatic ACP v2 `AcpAgent` using the unified event model. **Not `acp serve`** — we use the programmatic SDK so the SQLite cache and ed25519 attestation can run in the handler path.
 - `src/laguna/client.ts` — typed HTTP client to the Laguna backend. **Only place that knows REST paths.** Base: `https://agents.laguna.network/api/v1`. All endpoints are GET.
 - `src/handlers/*.ts` — one pure handler per ACP offering / resource. Handlers are framework-agnostic so they're easy to unit-test.
 - `src/attest.ts` — ed25519 signing of deliverables. Pubkey published via the agent card for caller verification.
 - `src/cache.ts` — SQLite idempotency cache, 24h TTL, keyed on (client, merchant, target_url, caller_tag).
-- `acp.config.ts` — manifest of offerings + resources + identity. Source of truth for `scripts/register-agent.ts` output.
+- `acp.config.ts` — manifest of offerings + resources + identity. Source of truth for `scripts/register-agent.ts` output (emits `offering.json` files per offering).
 - `scripts/register-agent.ts` — prints spec for the ACP Registry UI (TODO: wire programmatic registration once the SDK exposes it).
 - `scripts/smoke-sepolia.ts` — end-to-end client-side smoke test on Base Sepolia.
 
@@ -35,12 +35,12 @@ Per the migration doc:
 - Chains come from `@account-kit/infra` (`baseSepolia`, `base`).
 - Legacy v1 agents need a one-time "Upgrade Now" on app.virtuals.io before v2 SDK works.
 
-## Offerings (all free — price 0 USDC)
+## Offerings (0.01 USDC per call, refunded after completion)
 
 | Name | What it does |
 |---|---|
-| `mint-affiliate-link` | Mint Laguna shortlink for `merchant_id` (+ optional `target_url`, `geo`, `caller_tag`). |
-| `sweep-commissions` | Trigger Laguna withdrawal to the on-record wallet. Safe because Laguna withdrawal is wallet-bound. |
+| `mint_link` | Mint Laguna shortlink for `merchant_id` (+ optional `target_url`, `geo`, `caller_tag`). |
+| `sweep_commissions` | Trigger Laguna withdrawal to the on-record wallet. Safe because Laguna withdrawal is wallet-bound. |
 
 ## Resources (read-only)
 
@@ -50,7 +50,7 @@ Per the migration doc:
 
 ## How revenue works
 
-Zero-priced jobs. Commission comes from Laguna paying USDC to `ACP_WALLET_ADDRESS` (Base) when users convert through minted links. That wallet is both the ACP provider signing address AND the Laguna payout address — intentional single-wallet design to avoid internal transfers.
+Jobs cost 0.01 USDC (nominal toll to satisfy ACP escrow). Provider refunds the 0.01 USDC to the client after job completion — net cost to caller is zero. Commission comes from Laguna paying USDC to `ACP_WALLET_ADDRESS` (Base) when users convert through minted links. That wallet is both the ACP provider signing address AND the Laguna payout address — intentional single-wallet design to avoid internal transfers.
 
 ## Known TODOs (before mainnet)
 

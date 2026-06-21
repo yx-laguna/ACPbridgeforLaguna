@@ -7,7 +7,7 @@
  * source-of-truth for:
  *   - what we advertise (also fed into scripts/register-agent.ts)
  *   - requirement schemas used for runtime validation
- *   - pricing (always 0 USDC for us in v1)
+ *   - pricing (0.01 USDC per call; provider refunds after completion — nominal toll to satisfy ACP escrow)
  */
 
 import { MintLinkRequest } from "./src/handlers/mint-affiliate-link.js";
