@@ -15,9 +15,9 @@ import {
   AcpAgent,
   PrivyAlchemyEvmProviderAdapter,
   AssetToken,
-  SocketTransport,
 } from "@virtuals-protocol/acp-node-v2";
 import type { JobSession, JobRoomEntry, AgentMessage } from "@virtuals-protocol/acp-node-v2";
+import { SocketTransport } from "@virtuals-protocol/acp-node-v2/dist/events/socketTransport.js";
 import { baseSepolia, base } from "@account-kit/infra";
 
 import { LagunaClient } from "./laguna/client.js";
