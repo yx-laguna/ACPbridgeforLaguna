@@ -136,7 +136,16 @@ async function main() {
   });
 
   log("info", "handler registered, calling agent.start()...");
-  await agent.start();
+  const startTimeout = setTimeout(() => {
+    log("error", "agent.start() has been pending for 30s — SSE connection likely stuck");
+  }, 30_000);
+  // Only subscribe to "chat" stream — "wallet" stream is for approval gates
+  // which we don't use (our Privy signer auto-signs). Subscribing to both
+  // can hang if the wallet stream endpoint stalls.
+  await agent.start(() => {
+    log("info", "SSE onConnected callback fired");
+  }, ["chat"]);
+  clearTimeout(startTimeout);
   log("info", `ACPLagunaTranslator up on chains: baseSepolia, base`);
 
   // Keep the process alive. The ACP SDK's internal WebSocket/polling uses
