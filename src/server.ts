@@ -25,7 +25,7 @@ import * as sweep from "./handlers/sweep-commissions.js";
 
 const WALLET = requireEnv("ACP_WALLET_ADDRESS") as `0x${string}`;
 const WALLET_ID = requireEnv("PRIVY_WALLET_ID");
-const SIGNER_KEY = process.env.PRIVY_SIGNER_PRIVATE_KEY;
+const SIGNER_KEY = requireEnv("PRIVY_SIGNER_PRIVATE_KEY");
 
 const laguna = new LagunaClient({
   baseUrl: requireEnv("LAGUNA_API_BASE_URL"),
@@ -33,14 +33,16 @@ const laguna = new LagunaClient({
 });
 
 async function main() {
-  const agent = await AcpAgent.create({
-    provider: await PrivyAlchemyEvmProviderAdapter.create({
-      walletAddress: WALLET,
-      walletId: WALLET_ID,
-      chains: [baseSepolia, base],
-      ...(SIGNER_KEY ? { signerPrivateKey: SIGNER_KEY } : {}),
-    }),
+  log("info", "starting: creating PrivyAlchemy provider adapter...");
+  const provider = await PrivyAlchemyEvmProviderAdapter.create({
+    walletAddress: WALLET,
+    walletId: WALLET_ID,
+    chains: [baseSepolia, base],
+    signerPrivateKey: SIGNER_KEY,
   });
+  log("info", "provider adapter created, creating AcpAgent...");
+  const agent = await AcpAgent.create({ provider });
+  log("info", "AcpAgent created, registering handler...");
 
   agent.on("entry", async (session: JobSession, entry: JobRoomEntry) => {
     if (entry.kind !== "system") return;
@@ -133,6 +135,7 @@ async function main() {
     }
   });
 
+  log("info", "handler registered, calling agent.start()...");
   await agent.start();
   log("info", `ACPLagunaTranslator up on chains: baseSepolia, base`);
 
