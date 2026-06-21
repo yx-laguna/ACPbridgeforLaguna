@@ -136,16 +136,21 @@ async function main() {
   });
 
   log("info", "handler registered, calling agent.start()...");
-  const startTimeout = setTimeout(() => {
-    log("error", "agent.start() has been pending for 30s — SSE connection likely stuck");
-  }, 30_000);
+
+  // Skip hydrateSessions() — it fetches all historical active jobs and can
+  // hang when there's a large backlog of stale "open" jobs. We only care
+  // about new incoming events, not replaying old ones.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const agentAny = agent as any;
+  agentAny.hydrateSessions = async () => {
+    log("info", "hydrateSessions skipped (monkey-patched)");
+  };
+
   // Only subscribe to "chat" stream — "wallet" stream is for approval gates
-  // which we don't use (our Privy signer auto-signs). Subscribing to both
-  // can hang if the wallet stream endpoint stalls.
+  // which we don't use (our Privy signer auto-signs).
   await agent.start(() => {
     log("info", "SSE onConnected callback fired");
   }, ["chat"]);
-  clearTimeout(startTimeout);
   log("info", `ACPLagunaTranslator up on chains: baseSepolia, base`);
 
   // Keep the process alive. The ACP SDK's internal WebSocket/polling uses
