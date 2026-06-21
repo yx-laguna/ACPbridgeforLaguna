@@ -41,7 +41,10 @@ async function main() {
     chains: [base, baseSepolia],
     signerPrivateKey: SIGNER_KEY,
   });
-  log("info", "provider adapter created, creating AcpAgent with SocketTransport...");
+  const resolvedAddr = await provider.getAddress();
+  const chains = await provider.getSupportedChainIds();
+  log("info", `provider adapter created. address=${resolvedAddr} chains=${JSON.stringify(chains)}`);
+  log("info", "creating AcpAgent with SocketTransport...");
   const agent = await AcpAgent.create({
     provider,
     transport: new SocketTransport(),
