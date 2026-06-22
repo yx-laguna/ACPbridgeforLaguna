@@ -39,6 +39,8 @@ const laguna = new LagunaClient({
 // then process them. This guarantees delivery even if the socket dies.
 const pendingJobs = new Map<string, { session: JobSession; chainId: number }>();
 const processingJobs = new Set<string>();  // prevent duplicate processing
+// We store the agent ref so handleFundedJob can fetch chat history
+let agentRef: AcpAgent | null = null;
 
 async function handleFundedJob(session: JobSession) {
   const jobKey = `${session.chainId}:${session.jobId}`;
@@ -52,10 +54,32 @@ async function handleFundedJob(session: JobSession) {
     const offeringName = job.description ?? "";
 
     // Requirement is sent as a chat message immediately after job creation.
-    const reqEntry = session.entries.find(
+    // First check session.entries (populated if socket delivered events).
+    let reqEntry = session.entries.find(
       (e): e is AgentMessage =>
         e.kind === "message" && e.contentType === "requirement",
     );
+
+    // If not found (socket dropped), fetch full chat history from API.
+    if (!reqEntry && agentRef) {
+      log("info", `job ${session.jobId} no requirement in session.entries, fetching chat history...`);
+      try {
+        const transport = (agentRef as any).transport;
+        const history: JobRoomEntry[] = await transport.getHistory(session.chainId, session.jobId);
+        log("info", `job ${session.jobId} fetched ${history.length} history entries`);
+        reqEntry = history.find(
+          (e): e is AgentMessage =>
+            e.kind === "message" && e.contentType === "requirement",
+        );
+        // Also backfill session entries for future reference
+        for (const entry of history) {
+          session.appendEntry(entry);
+        }
+      } catch (histErr) {
+        log("warn", `job ${session.jobId} getHistory failed: ${serializeError(histErr)}`);
+      }
+    }
+
     const req: unknown = reqEntry ? JSON.parse(reqEntry.content) : {};
 
     const ctx = {
@@ -128,6 +152,7 @@ async function main() {
     provider,
     transport: new SocketTransport(),
   });
+  agentRef = agent;
   log("info", "AcpAgent created, registering handler...");
 
   agent.on("entry", async (session: JobSession, entry: JobRoomEntry) => {
