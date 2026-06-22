@@ -55,10 +55,15 @@ async function handleFundedJob(session: JobSession) {
 
     // Requirement is sent as a chat message immediately after job creation.
     // First check session.entries (populated if socket delivered events).
+    log("info", `job ${session.jobId} session.entries count=${session.entries.length} agentRef=${agentRef ? "set" : "null"}`);
+    for (const e of session.entries) {
+      log("info", `job ${session.jobId} entry: kind=${e.kind} ${e.kind === "message" ? `contentType=${"contentType" in e ? (e as any).contentType : "?"}` : `event=${(e as any).event?.type ?? "?"}`}`);
+    }
     let reqEntry = session.entries.find(
       (e): e is AgentMessage =>
         e.kind === "message" && e.contentType === "requirement",
     );
+    log("info", `job ${session.jobId} reqEntry found=${!!reqEntry}`);
 
     // If not found (socket dropped), fetch full chat history from API.
     if (!reqEntry && agentRef) {
