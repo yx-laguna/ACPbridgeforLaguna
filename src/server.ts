@@ -93,12 +93,16 @@ async function handleFundedJob(session: JobSession) {
       clientAgentId: job.clientAddress,
     };
 
+    log("info", `job ${session.jobId} offering="${offeringName}" req=${JSON.stringify(req)}`);
     let deliverable: unknown;
     switch (offeringName) {
       case "mint_link":
+      case "mint-affiliate-link":  // legacy alias
         deliverable = await mintLink.handler(req, ctx);
         break;
       case "sweep_commissions":
+      case "sweep-commissions":    // legacy alias
+      case "withdraw":             // legacy alias
         deliverable = await sweep.handler(req, { laguna, walletAddress: WALLET });
         break;
       default:
@@ -239,23 +243,15 @@ async function main() {
     }
   });
 
-  log("info", "handler registered, calling agent.start()...");
+  log("info", "handler registered, calling agent.start() with hydrateSessions enabled...");
 
-  // Skip hydrateSessions() — it fetches all historical active jobs and can
-  // hang when there's a large backlog of stale "open" jobs. We only care
-  // about new incoming events, not replaying old ones.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const agentAny = agent as any;
-  agentAny.hydrateSessions = async () => {
-    log("info", "hydrateSessions skipped (monkey-patched)");
-  };
-
-  // Subscribe to both streams (chat + wallet). The wallet stream carries
-  // on-chain job events that the chat stream may not include.
+  // agent.start() connects the socket AND calls hydrateSessions() which fetches
+  // all active jobs assigned to this provider. This catches any jobs that were
+  // created while the bridge was offline / socket was dropped.
   await agent.start(() => {
-    log("info", "SSE onConnected callback fired");
+    log("info", "socket connected (onConnected callback fired)");
   });
-  log("info", `ACPLagunaTranslator up on chains: baseSepolia, base`);
+  log("info", `ACPLagunaTranslator up on chains: base, baseSepolia`);
 
   // Poll pending jobs every 10 seconds as fallback for dropped socket events
   setInterval(() => {
