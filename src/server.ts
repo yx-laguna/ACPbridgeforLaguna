@@ -260,6 +260,21 @@ async function main() {
     });
   }, 10_000);
 
+  // Re-run hydrateSessions every 30 seconds to discover new jobs created while
+  // the socket was dropped. Without this, the bridge only knows about jobs that
+  // arrived via socket events or were active at startup.
+  setInterval(async () => {
+    try {
+      const agentAny = agentRef as unknown as { hydrateSessions?: () => Promise<void> };
+      if (agentAny.hydrateSessions) {
+        log("info", "periodic hydrateSessions — checking for missed jobs");
+        await agentAny.hydrateSessions();
+      }
+    } catch (err) {
+      log("warn", `periodic hydrateSessions failed: ${serializeError(err)}`);
+    }
+  }, 30_000);
+
   // Keep the process alive
   setInterval(() => {}, 60_000);
 }
